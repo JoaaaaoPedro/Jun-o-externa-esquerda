@@ -1,0 +1,74 @@
+void leftOuterJoin(char *nome_arq_dept, char *nome_arq_funcionarios, char *nome_arq_join) {
+    // 1. Contar a quantidade de departamentos no arquivo
+    FILE *f_dept = fopen(nome_arq_dept, "r");
+    if (f_dept == NULL) {
+        printf("Erro ao abrir arquivo de departamentos.\n");
+        return;
+    }
+
+    int num_depts = 0;
+    TDepartamento *temp;
+    while ((temp = le_departamento(f_dept)) != NULL) {
+        num_depts++;
+        free(temp);
+    }
+    fclose(f_dept);
+
+    // 2. Alocar memória e carregar os departamentos
+    TDepartamento **depts = (TDepartamento **) malloc(num_depts * sizeof(TDepartamento *));
+    int *match = (int *) calloc(num_depts, sizeof(int)); // Array para marcar se o dept teve funcionário
+
+    f_dept = fopen(nome_arq_dept, "r");
+    for (int i = 0; i < num_depts; i++) {
+        depts[i] = le_departamento(f_dept);
+    }
+    fclose(f_dept);
+
+    // 3. Abrir arquivos de funcionários e de saída (join)
+    FILE *f_func = fopen(nome_arq_funcionarios, "r");
+    FILE *f_out = fopen(nome_arq_join, "w");
+
+    if (f_func == NULL || f_out == NULL) {
+        printf("Erro ao abrir arquivos de funcionarios ou de saida.\n");
+        for (int i = 0; i < num_depts; i++) free(depts[i]);
+        free(depts);
+        free(match);
+        return;
+    }
+
+    // 4. Ler funcionários e realizar a junção
+    TFuncionario *func;
+    while ((func = le_funcionario(f_func)) != NULL) {
+        for (int i = 0; i < num_depts; i++) {
+            if (depts[i]->cod_dept == func->cod_dept) {
+                // Imprime os dados combinados
+                fprintf(f_out, "%d;%d;%s;%d;%s;\n", 
+                        depts[i]->cod_dept, depts[i]->sala, depts[i]->nome, 
+                        func->cod_func, func->nome);
+                match[i] = 1; // Marca que este departamento teve funcionário
+            }
+        }
+        free(func);
+    }
+
+    // 5. Imprimir departamentos que não tiveram funcionários associados (Left Outer Join)
+    for (int i = 0; i < num_depts; i++) {
+        if (match[i] == 0) {
+            // Código do funcionário igual a zero, e o nome deve ser a string vazia
+            fprintf(f_out, "%d;%d;%s;0;;\n", 
+                    depts[i]->cod_dept, depts[i]->sala, depts[i]->nome);
+        }
+    }
+
+    // 6. Adicionar a linha vazia no final do arquivo
+    fprintf(f_out, "\n");
+
+    // 7. Fechar arquivos e liberar memória
+    fclose(f_func);
+    fclose(f_out);
+    for (int i = 0; i < num_depts; i++) {
+        free(depts[i]);
+    }
+    free(depts);
+    free(match);
+}
